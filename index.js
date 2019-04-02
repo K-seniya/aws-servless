@@ -1,6 +1,7 @@
 const serverless = require('serverless-http');
 const bodyParser = require('body-parser');
 const express = require('express');
+const contentfull = require("./contentfull.js");
 const app = express();
 const AWS = require('aws-sdk');
 
@@ -21,7 +22,11 @@ if (IS_OFFLINE === 'true') {
 app.use(bodyParser.json({ strict: false }));
 
 app.get('/', function (req, res) {
-    res.send('Hello World!')
+    res.send('Hello World!');
+});
+
+app.get('/contentfull', function (req, res) {
+    contentfull.runBoilerplate();
 });
 
 // Get Product endpoint
