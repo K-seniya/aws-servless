@@ -28,44 +28,13 @@ provider:
   environment:
     PRODUCTS_TABLE: ${self:custom.tableName}
     JWT_SECRET: ${self:custom.secrets.JWT_SECRET}
-    DB: ${self:custom.secrets.DB}
+    AUTH0_CLIENT_ID: ${file(secrets.json):AUTH0_CLIENT_ID}
+    AUTH0_CLIENT_PUBLIC_KEY: ${file(public_key)}
 
 functions:
-  verify-token:
-    handler: auth/VerifyToken.auth
-
-  login:
-    handler: auth/AuthHandler.login
-    events:
-      - http:
-          path: login
-          method: post
-          cors: true
-
-  register:
-    handler: auth/AuthHandler.register
-    events:
-      - http:
-          path: register
-          method: post
-          cors: true
-
-  me:
-    handler: auth/AuthHandler.me
-    events:
-      - http:
-          path: me
-          method: get
-          cors: true
-          authorizer: verify-token
-
-  getUsers:
-    handler: user/UserHandler.getUsers
-    events:
-      - http:
-          path: users
-          method: get
-          cors: true
+  auth:
+    handler: auth/AuthHandler.auth
+    cors: true
 
   app:
     handler: index.handler
@@ -75,11 +44,19 @@ functions:
     getProduct:
       handler: index.handler
       events:
-        - http: 'GET /products/{proxy+}'
+        - http:
+          path: 'products/{proxy+}'
+          method: get
+          authorizer: auth
+          cors: true
     createProduct:
       handler: index.handler
       events:
-        - http: 'POST /products'
+        - http:
+          path: 'products'
+          method: post
+          authorizer: auth
+          cors: true
 
 resources:
   Resources:
@@ -98,6 +75,27 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableName}
+    # This response is needed for custom authorizer failures cors support ¯\_(ツ)_/¯
+    GatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: EXPIRED_TOKEN
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
+    AuthFailureGatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: UNAUTHORIZED
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
 
 plugins:
   - serverless-dynamodb-local
